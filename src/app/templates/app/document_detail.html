@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ document.name }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Основные стили */
+    .document-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        color: #4a6fa5;
+        text-decoration: none;
+        margin-bottom: 2rem;
+        transition: color 0.2s ease;
+    }
+
+    .back-link:hover { color: #2c3e50; }
+    .back-link i { margin-right: 0.5rem; }
+
+    .document-title {
+        font-size: 2rem;
+        color: #2c3e50;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #f0f2f5;
+    }
+
+    /* Стили глав и предложений */
+    .chapter {
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #4a6fa5;
+        transition: transform 0.2s ease;
+    }
+
+    .chapter:hover { transform: translateX(5px); }
+
+    .chapter-header {
+        font-size: 1.3rem;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .chapter-number {
+        background: #4a6fa5;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+    }
+
+    /* Стили для предложений с чекбоксами */
+    .sentence {
+        position: relative;
+        padding: 0.8rem 1rem 0.8rem 3rem;
+        margin-bottom: 0.5rem;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #edf2f7;
+    }
+
+    .checkbox-wrapper {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    .sentence-checkbox {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: #4a6fa5;
+    }
+
+    /* Панель массового копирования */
+    .bulk-actions {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        display: none;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .bulk-actions.show { display: flex; }
+
+    .selected-count {
+        color: #4a6fa5;
+        font-weight: 500;
+    }
+
+    .copy-selected-btn {
+        background: #4a6fa5;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .copy-selected-btn:hover {
+        background: #2c3e50;
+        transform: translateY(-1px);
+    }
+
+    /* Адаптивность */
+    @media (max-width: 768px) {
+        .document-container {
+            margin: 1rem;
+            padding: 1.5rem;
+        }
+
+        .document-title { font-size: 1.6rem; }
+        .chapter { padding: 1rem; }
+        .sentence { padding-left: 2.5rem; }
+
+        .bulk-actions {
+            bottom: 1rem;
+            right: 1rem;
+            flex-direction: column;
+            padding: 0.75rem;
+        }
+    }
+</style>
+
+<div class="document-container">
+    <a href="{% url 'document_list' %}" class="back-link">
+        <i class="fas fa-arrow-left"></i>
+        Назад к списку
+    </a>
+    
+    <h1 class="document-title">{{ document.name }}</h1>
+    
+    {% if chapters %}
+        {% for chapter in chapters %}
+            <div class="chapter" id="chapter-{{ chapter.number }}">
+                <div class="chapter-header">
+                    <div class="chapter-number">{{ chapter.number }}</div>
+                    Глава {{ chapter.number }}
+                </div>
+                <div class="sentence-list">
+                    {% for sentence in chapter.sentences.all %}
+                        <div class="sentence">
+                            <div class="checkbox-wrapper">
+                                <input 
+                                    type="checkbox" 
+                                    class="sentence-checkbox" 
+                                    data-text="{{ sentence.text }}"
+                                >
+                            </div>
+                            <span class="sentence-text">{{ sentence.text }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    {% endif %}
+</div>
+
+<div class="bulk-actions">
+    <span class="selected-count">Выбрано: <span id="selectedCount">0</span></span>
+    <button class="copy-selected-btn" onclick="copySelectedTexts()">
+        <i class="fas fa-copy"></i> Скопировать выбранное
+    </button>
+</div>
+
+<script>
+    const checkboxes = document.querySelectorAll('.sentence-checkbox');
+    const bulkActions = document.querySelector('.bulk-actions');
+    const selectedCount = document.getElementById('selectedCount');
+
+    function updateSelection() {
+        const selected = document.querySelectorAll('.sentence-checkbox:checked').length;
+        selectedCount.textContent = selected;
+        bulkActions.classList.toggle('show', selected > 0);
+    }
+
+    function copySelectedTexts() {
+        const selected = Array.from(document.querySelectorAll('.sentence-checkbox:checked'))
+            .map(checkbox => checkbox.dataset.text)
+            .join('\n\n');
+
+        if (!selected) {
+            alert('Выберите хотя бы одно предложение для копирования');
+            return;
+        }
+
+        navigator.clipboard.writeText(selected)
+            .then(() => {
+                alert('Скопировано ' + selectedCount.textContent + ' предложений');
+                checkboxes.forEach(cb => cb.checked = false);
+                updateSelection();
+            })
+            .catch(err => {
+                console.error('Ошибка копирования:', err);
+                alert('Не удалось скопировать текст');
+            });
+    }
+
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelection);
+    });
+</script>
+{% endblock content %}

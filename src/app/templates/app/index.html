@@ -1,0 +1,339 @@
+{% extends 'base.html' %}
+{% load highlight_filters %}
+{% block title %}Документы{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="text-center mb-4 display-6 text-secondary">Документы</h1>
+    
+    <!-- Форма загрузки -->
+    <div class="upload-form mb-4 p-3 bg-light rounded-2 shadow-sm text-secondary" style="max-width: 600px; margin: 0 auto;">
+        <h5 class="mb-3 fs-5">
+            <i class="fas fa-upload me-1"></i>Новый документ
+        </h5>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-2">
+                {{ form.name.label_tag }}
+                {{ form.name|add_class:"form-control form-control-sm" }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.file.label }}</label>
+                <div class="file-input-wrapper">
+                    <input type="file" 
+                           name="{{ form.file.name }}" 
+                           class="form-control-file" 
+                           id="{{ form.file.id_for_label }}"
+                           accept=".txt,.docx"
+                           onchange="updateFileName(this)">
+                    <label for="{{ form.file.id_for_label }}" class="file-input-label">
+                        <span class="file-input-text">Выберите файл</span>
+                        <span class="browse-btn">
+                            <i class="fas fa-folder-open me-1"></i>Обзор
+                        </span>
+                    </label>
+                </div>
+                <small class="form-text text-muted">{{ form.file.help_text }}</small>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <small class="text-muted">Документов: {{ all_documents.count }}</small>
+                <button type="submit" class="btn btn-primary btn-sm px-3 py-1">
+                    <i class="fas fa-cloud-upload-alt me-1"></i>Загрузить
+                </button>
+            </div>
+            {% if error %}
+                <div class="alert alert-danger mt-2 p-2">{{ error }}</div>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Основной контент -->
+    <div hx-target="#main-content" hx-swap="innerHTML">
+        {% include 'app/partials/search_results.html' %}
+    </div>
+</div>
+
+<style>
+    :root {
+        --primary-color: #2c3e50;
+        --secondary-color: #4a6fa5;
+        --highlight-color: #ffd700;
+    }
+
+    .upload-form {
+        background: #fdfdfd;
+        border: 1px solid #eee;
+        transition: transform 0.2s ease;
+    }
+
+    .upload-form:hover {
+        transform: translateY(-2px);
+    }
+
+    .form-control-sm {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+        border-radius: 6px;
+    }
+
+    .btn-sm {
+        font-size: 0.85rem;
+        border-radius: 5px;
+    }
+
+    .alert {
+        font-size: 0.85rem;
+        padding: 0.4rem;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            padding: 1rem;
+        }
+        
+        .upload-form {
+            padding: 1rem;
+            margin: 0 0.5rem;
+        }
+        
+        h1.display-6 {
+            font-size: 1.8rem;
+        }
+    }
+    /* Стили для кастомного поля файла */
+.file-input-wrapper {
+    position: relative;
+    overflow: hidden;
+}
+
+.form-control-file {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.file-input-label {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.file-input-label:hover {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.25);
+}
+
+.file-input-text {
+    flex-grow: 1;
+    color: #6c757d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 1rem;
+}
+
+.browse-btn {
+    background: #f8f9fa;
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    color: #2c3e50;
+    transition: all 0.2s ease;
+}
+
+.browse-btn:hover {
+    background: #e2e6ea;
+    transform: translateY(-1px);
+}
+
+/* Иконка */
+.fa-folder-open {
+    color: #4a6fa5;
+    transition: color 0.2s ease;
+}
+
+.file-input-label:hover .fa-folder-open {
+    color: #2c3e50;
+}
+
+    /* Общие стили */
+    #main-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    /* Фильтры */
+    .filters {
+        background: #ffffff;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        margin-bottom: 2rem;
+    }
+
+    .form-select {
+        border: 2px solid #e0e6ed;
+        border-radius: 8px;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-select:focus {
+        border-color: #4a6fa5;
+        box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.1);
+    }
+
+    .form-control {
+        border: 2px solid #e0e6ed;
+        border-radius: 8px;
+        padding: 0.75rem 1.25rem;
+        transition: all 0.3s ease;
+    }
+
+    /* Результаты поиска */
+    .document-group {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border-left: 4px solid #4a6fa5;
+    }
+
+    .document-group h3 {
+        color: #2c3e50;
+        font-size: 1.4rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #f0f2f5;
+    }
+
+    .chapter-group {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        border-left: 3px solid #a0aec0;
+    }
+
+    .chapter-group h4 {
+        color: #4a5568;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+    }
+
+    .sentence {
+        background: white;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 6px;
+        transition: transform 0.2s ease;
+        border: 1px solid #edf2f7;
+    }
+
+    .sentence:hover {
+        transform: translateX(5px);
+        box-shadow: 0 2px 6px rgba(74, 111, 165, 0.1);
+    }
+
+    /* Список документов */
+    .all-documents .list-group-item {
+        border: none;
+        margin-bottom: 0.5rem;
+        border-radius: 8px!important;
+        transition: all 0.2s ease;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        padding: 1rem 1.5rem;
+    }
+
+    .all-documents .list-group-item:hover {
+        background: #f8fafc;
+        transform: translateX(5px);
+    }
+
+    .all-documents .badge {
+       
+        font-weight: 500;
+        padding: 0.5em 0.8em;
+        font-size: 0.8rem;
+    }
+
+    /* Алерты */
+    .alert {
+        border-radius: 8px;
+        padding: 1rem 1.5rem;
+        border: none;
+    }
+
+    .alert-info {
+        background: #e3f2fd;
+        color: #2c3e50;
+    }
+
+    .alert-warning {
+        background: #fff3cd;
+        color: #2c3e50;
+    }
+
+    .document-group {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.highlight {
+    background: #fff9c4;
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+    /* Адаптивность */
+    @media (max-width: 768px) {
+        #main-content {
+            padding: 15px;
+        }
+        
+        .document-group {
+            padding: 1rem;
+        }
+        
+        .sentence {
+            font-size: 0.95rem;
+            padding: 0.8rem;
+        }
+        
+        .all-documents .list-group-item {
+            padding: 0.8rem;
+        }
+    }
+
+</style>
+<script>
+    function updateFileName(input) {
+    const fileName = input.files[0]?.name || 'Файл не выбран';
+    const textElement = input.parentElement.querySelector('.file-input-text');
+    textElement.textContent = fileName;
+    textElement.style.color = '#2c3e50';
+}
+</script>
+{% endblock %}

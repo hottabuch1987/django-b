@@ -1,0 +1,111 @@
+{% load highlight_filters %}
+<div id="main-content">
+    <!-- Фильтры -->
+    <div class="filters mb-4">
+        <select name="document" 
+                hx-get="{% url 'document_list' %}"
+                hx-target="#main-content"
+                hx-trigger="change"
+                class="form-select">
+            <option value="">Все документы</option>
+            {% for doc in all_documents %}
+                <option value="{{ doc.id }}" {% if document_filter == doc.id|stringformat:"s" %}selected{% endif %}>
+                    {{ doc.name }}
+                </option>
+            {% endfor %}
+        </select>
+        
+        <input type="text" 
+               name="q" 
+               value="{{ search_query }}"
+               hx-get="{% url 'document_list' %}"
+               hx-target="#main-content"
+               hx-trigger="keyup changed delay:500ms"
+               placeholder="Поиск по предложениям..."
+               class="form-control mt-3">
+    </div>
+
+    <!-- Результаты -->
+    <div class="results">
+        {% if search_query or document_filter %}
+            {% regroup sentences by chapter.document as document_groups %}
+            
+            {% if document_groups %}
+                {% for document in document_groups %}
+                    <div class="document-group mb-5">
+                        <h3>
+                            <a href="{% url 'document_detail' document.grouper.id %}" 
+                               class="document-link">
+                                {{ document.grouper.name }}
+                            </a>
+                        </h3>
+                        
+                        {% regroup document.list by chapter as chapter_groups %}
+                        {% for chapter in chapter_groups %}
+                            <div class="chapter-group mb-3">
+                                <h4>
+                                    <a href="{% url 'document_detail' document.grouper.id %}#chapter-{{ chapter.grouper.number }}" 
+                                       class="chapter-link">
+                                        Глава {{ chapter.grouper.number }}
+                                    </a>
+                                </h4>
+                                
+                                {% for sentence in chapter.list %}
+                                    <div class="sentence mb-2 p-2 bg-light rounded">
+                                        {{ sentence.text|highlight:search_query }}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">Ничего не найдено</div>
+            {% endif %}
+        {% else %}
+            <div class="all-documents">
+                <div class="list-group">
+                    {% for doc in documents %}
+                        <a href="{% url 'document_detail' doc.id %}" 
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            {{ doc.name }}
+                            <span class="badge rounded-pill bg-primary">{{ doc.chapters.count }}</span>
+                        </a>
+                    {% empty %}
+                        <div class="alert alert-warning">Документы не найдены</div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .document-link {
+        color: #2c3e50;
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+
+    .document-link:hover {
+        color: #4a6fa5;
+        text-decoration: underline;
+    }
+
+    .chapter-link {
+        color: #4a5568;
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+
+    .chapter-link:hover {
+        color: #2c3e50;
+        text-decoration: underline;
+    }
+
+    .document-group h3 {
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #f0f2f5;
+    }
+</style>

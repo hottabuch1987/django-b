@@ -1,0 +1,4 @@
+Django==4.2.16
+openpyxl==3.1.5
+python-docx 
+chardet
