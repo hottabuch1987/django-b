@@ -12,21 +12,26 @@ from .forms import DocumentUploadForm
 from django.db.models import Q
 
 def document_list(request):
-    search_query = request.GET.get('q', '')
+    search_query = request.GET.get('q', '').strip()
     document_filter = request.GET.get('document', '')
     
-    # Основной запрос для документов
     documents = Document.objects.all().order_by('name')
     sentences = Sentence.objects.all()
-    
-    # Фильтрация
+
+    # Фильтр по документу (если выбран)
     if document_filter:
-        sentences = sentences.filter(chapter__document_id=document_filter)
-        documents = documents.filter(id=document_filter)
-    
+        try:
+            document = Document.objects.get(id=int(document_filter))
+            sentences = sentences.filter(chapter__document=document)
+            documents = Document.objects.filter(id=document.id)
+        except (ValueError, Document.DoesNotExist):
+            pass
+
+    # Комбинированный поиск
     if search_query:
         sentences = sentences.filter(text__icontains=search_query)
 
+    show_empty_message = (search_query or document_filter) and not sentences.exists()
     # Определение шаблона для HTMX
     is_htmx = request.headers.get('HX-Request') == 'true'
 
@@ -76,7 +81,8 @@ def document_list(request):
         'all_documents': Document.objects.all(),
         'sentences': sentences.select_related('chapter__document'),
         'search_query': search_query,
-        'document_filter': document_filter
+        'document_filter': document_filter,
+        'show_empty_message': show_empty_message 
     })
 
 
@@ -116,25 +122,21 @@ def extract_text_from_file(document):
 
     return text
 
-
-
 def process_text(text):
-    """Разбивает текст на главы и предложения, исключая заголовки глав"""
-    # Ищем все вхождения "Глава X" с различными вариантами
+    """Разбивает текст на главы и предложения"""
     chapter_pattern = re.compile(
         r'(?i)^Глава\s+(\d+)[.:]?\s*',
         re.IGNORECASE | re.MULTILINE
     )
     
-    # Разделяем текст на главы
     chapters = []
     last_pos = 0
     
+    # Ищем все главы в тексте
     for match in chapter_pattern.finditer(text):
         chapter_number = int(match.group(1))
-        start = match.end()  # Начинаем с позиции после заголовка главы
+        start = match.end()
         
-        # Добавляем предыдущую главу, если есть
         if chapters:
             chapters[-1]['end'] = match.start()
         
@@ -145,23 +147,19 @@ def process_text(text):
         })
         last_pos = match.end()
     
-    # Обрабатываем последнюю главу
-    if chapters:
-        chapters[-1]['end'] = len(text)
-    else:
-        # Если нет ни одной главы, создаем главу 0
+    # Если глав не найдено - создаем главу 1
+    if not chapters:
         chapters.append({
-            'number': 0,
+            'number': 1,  # <-- Изменили с 0 на 1
             'start': 0,
             'end': len(text)
         })
+    else:
+        chapters[-1]['end'] = len(text)
     
-    # Извлекаем содержимое глав
+    # Обрабатываем все найденные главы
     structured_data = []
     for chapter in chapters:
-        if chapter['number'] == 0:
-            continue  # Пропускаем неглавированные части
-        
         content = text[chapter['start']:chapter['end']].strip()
         
         # Разделяем на предложения
@@ -173,11 +171,10 @@ def process_text(text):
                 current_sentence.append(part.strip())
                 if part in ['.', '!', '?', '…']:
                     sentence = ' '.join(current_sentence).strip()
-                    if sentence:  # Игнорируем пустые предложения
+                    if sentence:
                         sentences.append(sentence)
                     current_sentence = []
         
-        # Добавляем последнее предложение, если осталось
         if current_sentence:
             sentence = ' '.join(current_sentence).strip()
             if sentence:

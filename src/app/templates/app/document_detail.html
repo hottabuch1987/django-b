@@ -163,15 +163,18 @@
                 </div>
                 <div class="sentence-list">
                     {% for sentence in chapter.sentences.all %}
-                        <div class="sentence">
+                        <div class="sentence" id="sentence-{{ chapter.number }}-{{ sentence.number }}">
+                      
+                            <!-- В блоке с предложением  data-text -->
                             <div class="checkbox-wrapper">
-                                <input 
+                                <!--  data-text в чекбоксах -->
+                                    <input 
                                     type="checkbox" 
                                     class="sentence-checkbox" 
-                                    data-text="{{ sentence.text }}"
-                                >
+                                    data-text="Глава {{ chapter.number }}:{{ sentence.number }} | {{ sentence.text }}"
+                                    >
                             </div>
-                            <span class="sentence-text">{{ sentence.text }}</span>
+                            <span class="sentence-text">{{ sentence.text }}    [{{ chapter.number }} : {{ sentence.number }}]</span>   
                         </div>
                     {% endfor %}
                 </div>
@@ -198,19 +201,25 @@
         bulkActions.classList.toggle('show', selected > 0);
     }
 
+    
+    //  функция копирования
     function copySelectedTexts() {
+        const docName = `Документ: ${document.querySelector('.document-title').textContent}\n\n`;
+        
         const selected = Array.from(document.querySelectorAll('.sentence-checkbox:checked'))
             .map(checkbox => checkbox.dataset.text)
-            .join('\n\n');
+            .join('\n');
 
         if (!selected) {
             alert('Выберите хотя бы одно предложение для копирования');
             return;
         }
 
-        navigator.clipboard.writeText(selected)
+        const fullText = docName + selected.split('\n').map(line => `${line}`).join('\n');
+
+        navigator.clipboard.writeText(fullText)
             .then(() => {
-                alert('Скопировано ' + selectedCount.textContent + ' предложений');
+                alert(`Скопировано ${selectedCount.textContent} предложений из документа`);
                 checkboxes.forEach(cb => cb.checked = false);
                 updateSelection();
             })

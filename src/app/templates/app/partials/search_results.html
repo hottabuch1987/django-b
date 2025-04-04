@@ -6,6 +6,7 @@
                 hx-get="{% url 'document_list' %}"
                 hx-target="#main-content"
                 hx-trigger="change"
+                hx-include="[name='q']"
                 class="form-select">
             <option value="">Все документы</option>
             {% for doc in all_documents %}
@@ -21,6 +22,7 @@
                hx-get="{% url 'document_list' %}"
                hx-target="#main-content"
                hx-trigger="keyup changed delay:500ms"
+               hx-include="[name='document']" 
                placeholder="Поиск по предложениям..."
                class="form-control mt-3">
     </div>
@@ -35,7 +37,7 @@
                     <div class="document-group mb-5">
                         <h3>
                             <a href="{% url 'document_detail' document.grouper.id %}" 
-                               class="document-link">
+                            class="document-link">
                                 {{ document.grouper.name }}
                             </a>
                         </h3>
@@ -45,29 +47,45 @@
                             <div class="chapter-group mb-3">
                                 <h4>
                                     <a href="{% url 'document_detail' document.grouper.id %}#chapter-{{ chapter.grouper.number }}" 
-                                       class="chapter-link">
+                                    class="chapter-link">
                                         Глава {{ chapter.grouper.number }}
                                     </a>
                                 </h4>
                                 
                                 {% for sentence in chapter.list %}
-                                    <div class="sentence mb-2 p-2 bg-light rounded">
+                                    <a href="{% url 'document_detail' document.grouper.id %}#sentence-{{ chapter.grouper.number }}-{{ sentence.number }}" 
+                                    class="sentence-link d-block mb-2 p-2 bg-light rounded text-decoration-none text-dark">
+                                        Глава {{ chapter.grouper.number }}.{{ sentence.number }}: 
                                         {{ sentence.text|highlight:search_query }}
-                                    </div>
+                                    </a>
                                 {% endfor %}
                             </div>
                         {% endfor %}
+                        
                     </div>
                 {% endfor %}
-            {% else %}
-                <div class="alert alert-info">Ничего не найдено</div>
+                {% else %}
+                <!-- В блоке отображения сообщения -->
+                <div class="empty-results">
+                    <i class="fas fa-search-minus"></i>
+                    {% if search_query %}
+                        По запросу "{{ search_query }}" ничего не найдено
+                    {% endif %}
+                    {% if document_filter and documents %}
+                        в документе "{{ documents.first.name }}"
+                    {% endif %}
+                    {% if not search_query and document_filter %}
+                        В документе нет предложений
+                    {% endif %}
+                </div>
             {% endif %}
+            
         {% else %}
             <div class="all-documents">
                 <div class="list-group">
                     {% for doc in documents %}
                         <a href="{% url 'document_detail' doc.id %}" 
-                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             {{ doc.name }}
                             <span class="badge rounded-pill bg-primary">{{ doc.chapters.count }}</span>
                         </a>
@@ -77,8 +95,34 @@
                 </div>
             </div>
         {% endif %}
+
     </div>
 </div>
+<script>
+    // Прокрутка к предложению при загрузке страницы с якорем
+    document.addEventListener('DOMContentLoaded', function() {
+        const hash = window.location.hash;
+        if (hash) {
+            const target = document.querySelector(hash);
+            if (target) {
+                setTimeout(() => {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    target.style.animation = 'highlight 1.5s ease-out';
+                }, 300);
+            }
+        }
+    });
+    
+    // Анимация подсветки
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes highlight {
+            0% { background-color: rgba(74, 111, 165, 0.3); }
+            100% { background-color: transparent; }
+        }
+    `;
+    document.head.appendChild(style);
+    </script>
 
 <style>
     .document-link {
@@ -108,4 +152,43 @@
         padding-bottom: 0.5rem;
         border-bottom: 2px solid #f0f2f5;
     }
+    /* Добавьте стили для сообщения */
+    .empty-results {
+        padding: 2rem;
+        text-align: center;
+        color: #6c757d;
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        margin: 2rem 0;
+        font-size: 1.1rem;
+    }
+
+    .empty-results i {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        display: block;
+        color: #adb5bd;
+    }
+    /* Добавьте эти стили */
+.sentence-link {
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.sentence-link:hover {
+    border-color: #4a6fa5;
+    transform: translateX(5px);
+    box-shadow: 0 2px 8px rgba(74, 111, 165, 0.1);
+}
+
+/* Для страницы документа */
+.sentence {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sentence:hover {
+    background: #f8fafc;
+    border-color: #4a6fa5;
+}
 </style>
