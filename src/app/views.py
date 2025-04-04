@@ -5,7 +5,6 @@ from .models import Document, Chapter, Sentence
 from .forms import DocumentUploadForm
 from docx import Document as DocxDocument
 import os
-
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Document, Chapter, Sentence
 from .forms import DocumentUploadForm
@@ -117,26 +116,77 @@ def extract_text_from_file(document):
 
     return text
 
+
+
 def process_text(text):
-    """Разбивает текст на главы и предложения"""
-    chapter_splits = re.split(r'\bГлава\s*(\d+)\b', text, flags=re.IGNORECASE)
+    """Разбивает текст на главы и предложения, исключая заголовки глав"""
+    # Ищем все вхождения "Глава X" с различными вариантами
+    chapter_pattern = re.compile(
+        r'(?i)^Глава\s+(\d+)[.:]?\s*',
+        re.IGNORECASE | re.MULTILINE
+    )
     
-    structured_data = []
-    for i in range(1, len(chapter_splits), 2):
-        chapter_number = chapter_splits[i].strip()
-        chapter_content = chapter_splits[i + 1].strip() if i + 1 < len(chapter_splits) else ""
-
-        if not chapter_number.isdigit():
-            continue
-
-        chapter_number = int(chapter_number)
-        sentences = [s.strip() for s in re.split(r'\.\s*', chapter_content) if s.strip()]
-
-        structured_data.append({
-            'chapter_number': chapter_number,
-            'sentences': sentences
+    # Разделяем текст на главы
+    chapters = []
+    last_pos = 0
+    
+    for match in chapter_pattern.finditer(text):
+        chapter_number = int(match.group(1))
+        start = match.end()  # Начинаем с позиции после заголовка главы
+        
+        # Добавляем предыдущую главу, если есть
+        if chapters:
+            chapters[-1]['end'] = match.start()
+        
+        chapters.append({
+            'number': chapter_number,
+            'start': start,
+            'end': None
         })
-
+        last_pos = match.end()
+    
+    # Обрабатываем последнюю главу
+    if chapters:
+        chapters[-1]['end'] = len(text)
+    else:
+        # Если нет ни одной главы, создаем главу 0
+        chapters.append({
+            'number': 0,
+            'start': 0,
+            'end': len(text)
+        })
+    
+    # Извлекаем содержимое глав
+    structured_data = []
+    for chapter in chapters:
+        if chapter['number'] == 0:
+            continue  # Пропускаем неглавированные части
+        
+        content = text[chapter['start']:chapter['end']].strip()
+        
+        # Разделяем на предложения
+        sentences = []
+        current_sentence = []
+        
+        for part in re.split(r'([.!?…])', content):
+            if part.strip():
+                current_sentence.append(part.strip())
+                if part in ['.', '!', '?', '…']:
+                    sentence = ' '.join(current_sentence).strip()
+                    if sentence:  # Игнорируем пустые предложения
+                        sentences.append(sentence)
+                    current_sentence = []
+        
+        # Добавляем последнее предложение, если осталось
+        if current_sentence:
+            sentence = ' '.join(current_sentence).strip()
+            if sentence:
+                sentences.append(sentence)
+        
+        if sentences:
+            structured_data.append({
+                'chapter_number': chapter['number'],
+                'sentences': sentences
+            })
+    
     return structured_data
-
-
